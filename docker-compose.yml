@@ -1,0 +1,66 @@
+# docker-compose.yml файл для запуска ASTRACAT_GUARD с Caddy
+# файл: /opt/astracat_guard/docker-compose.yml
+
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      # Откройте порт 443 для HTTPS если нужно
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+      # Монтируем логи для ASTRACAT_GUARD
+      - ./logs:/var/log/caddy:rw
+    environment:
+      - CADDY_GLOBAL_OPTIONS=debug  # Удалите в продакшене
+    networks:
+      - astracat_network
+    restart: unless-stopped
+
+  astracat-guard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Для прямого доступа к сети и iptables
+    network_mode: host  # Обязательно для iptables блокировок
+    # Или используйте privileged режим если нужен host network
+    # privileged: true
+    volumes:
+      # Для доступа к логам Caddy (если в отдельном контейнере)
+      - ./logs:/var/log/caddy:ro
+      - /var/log:/var/log:rw
+      # Для сохранения состояния блокировок
+      - astracat_data:/opt/astracat_guard/data
+    environment:
+      - ASTCACAT_CONFIG_PATH=/opt/astracat_guard/conf/config.yaml
+    command: ["python3", "/opt/astracat_guard/lib/optimized_guard_daemon.py"]
+    networks:
+      - astracat_network
+    restart: unless-stopped
+    # Для функционирования iptables в контейнере
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  # Пример приложения для демонстрации
+  example-app:
+    image: nginx:alpine
+    volumes:
+      - ./html:/usr/share/nginx/html
+    networks:
+      - astracat_network
+    restart: unless-stopped
+
+networks:
+  astracat_network:
+    driver: bridge
+
+volumes:
+  astracat_data:
+  caddy_data:
+  caddy_config:

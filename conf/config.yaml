@@ -1,0 +1,101 @@
+# ASTRACAT_GUARD Configuration File
+version: "1.0"
+
+# Protection settings
+protection:
+  # Enable DDoS protection
+  ddos_protection: true
+  
+  # Rate limiting settings (requests per minute per IP)
+  rate_limit:
+    enabled: true
+    threshold: 100
+    window_size: 60  # seconds
+  
+  # Connection limiting
+  connection_limit:
+    enabled: true
+    max_connections: 100
+    max_connections_per_ip: 10
+    
+  # HTTP flood protection
+  http_flood:
+    enabled: true
+    max_requests_per_second: 10
+    
+  # Slowloris attack prevention
+  slowloris_protection:
+    enabled: true
+    timeout: 15  # seconds
+    max_headers: 100
+    header_timeout: 5  # seconds
+    
+  # Web panel specific protection
+  web_panel_protection:
+    enabled: true
+    sensitive_urls:
+      - "/admin"
+      - "/login"
+      - "/panel"
+      - "/dashboard"
+    
+  # Block suspicious user agents
+  user_agent_filter:
+    enabled: true
+    blocked_agents:
+      - "masscan"
+      - "nmap"
+      - "nikto"
+      - "sqlmap"
+      - "nessus"
+      - "zgrab"
+      - "gobuster"
+      - "dirbuster"
+      
+# Logging settings
+logging:
+  level: "INFO"
+  file: "/var/log/astracat_guard.log"
+  rotation:
+    enabled: true
+    max_size: "10MB"
+    backup_count: 5
+    
+# Network settings
+network:
+  # Interface to monitor (leave empty for all interfaces)
+  interface: ""
+  
+  # Ports to protect
+  protected_ports:
+    - 80    # HTTP
+    - 443   # HTTPS
+    - 8080  # Common web panel port
+    - 8443  # Common secure web panel port
+    - 2082  # cPanel
+    - 2083  # cPanel SSL
+    - 2086  # WHM
+    - 2087  # WHM SSL
+    - 2095  # Webmail
+    - 2096  # Webmail SSL
+    
+# Auto-update settings
+auto_update:
+  enabled: true
+  check_interval: 86400  # Check daily (in seconds)
+  
+# Whitelist for trusted IPs
+whitelist:
+  enabled: true
+  ips:
+    - "127.0.0.1"  # localhost
+    - "::1"        # IPv6 localhost
+    # Add your trusted IPs here:
+    # - "192.168.1.100"
+    # - "10.0.0.0/8"
+    
+# Blacklist for known malicious IPs
+blacklist:
+  enabled: true
+  auto_block_time: 3600  # Block for 1 hour
+  auto_block_threshold: 10  # Block after 10 attempts

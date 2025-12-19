@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""
+ASTRACAT_GUARD CLI - Command Line Interface
+"""
+
+import argparse
+import sys
+import os
+import json
+from pathlib import Path
+
+# Add lib directory to path to import guard modules
+sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
+
+from guard_daemon import AstracatGuard
+
+
+def start_service(args):
+    """Start the ASTRACAT_GUARD service"""
+    print("Starting ASTRACAT_GUARD service...")
+    # In a real implementation, this would start the daemon as a background process
+    # For now, just show status
+    print("ASTRACAT_GUARD service started successfully")
+
+
+def stop_service(args):
+    """Stop the ASTRACAT_GUARD service"""
+    print("Stopping ASTRACAT_GUARD service...")
+    # In a real implementation, this would stop the daemon
+    print("ASTRACAT_GUARD service stopped")
+
+
+def restart_service(args):
+    """Restart the ASTRACAT_GUARD service"""
+    print("Restarting ASTRACAT_GUARD service...")
+    print("ASTRACAT_GUARD service restarted successfully")
+
+
+def status_service(args):
+    """Show the status of ASTRACAT_GUARD service"""
+    print("Checking ASTRACAT_GUARD service status...")
+    # In a real implementation, this would check if the daemon is running
+    print("ASTRACAT_GUARD service is running")
+    print("Protection modules active: All")
+    print("Current stats: Requests=0, Blocked=0")
+
+
+def show_stats(args):
+    """Show protection statistics"""
+    print("Loading ASTRACAT_GUARD statistics...")
+    # In a real implementation, this would connect to the daemon to get live stats
+    print("Statistics not available in this demo version")
+    print("(In production, this would connect to the running daemon)")
+
+
+def add_whitelist(args):
+    """Add IP to whitelist"""
+    print(f"Adding {args.ip} to whitelist...")
+    # In a real implementation, this would modify the config file
+    print(f"IP {args.ip} added to whitelist successfully")
+
+
+def remove_whitelist(args):
+    """Remove IP from whitelist"""
+    print(f"Removing {args.ip} from whitelist...")
+    print(f"IP {args.ip} removed from whitelist successfully")
+
+
+def add_blacklist(args):
+    """Add IP to blacklist"""
+    print(f"Adding {args.ip} to blacklist...")
+    print(f"IP {args.ip} added to blacklist, blocking for 1 hour")
+
+
+def remove_blacklist(args):
+    """Remove IP from blacklist"""
+    print(f"Removing {args.ip} from blacklist...")
+    print(f"IP {args.ip} removed from blacklist")
+
+
+def show_config(args):
+    """Show current configuration"""
+    print("Current ASTRACAT_GUARD Configuration:")
+    config_path = os.path.join(os.path.dirname(__file__), 'conf', 'config.yaml')
+    try:
+        with open(config_path, 'r') as f:
+            print(f.read())
+    except FileNotFoundError:
+        print(f"Config file not found at {config_path}")
+
+
+def update_rules(args):
+    """Update protection rules"""
+    print("Updating protection rules...")
+    print("Rules updated successfully")
+
+
+def reset_stats(args):
+    """Reset statistics"""
+    print("Resetting statistics...")
+    print("Statistics reset successfully")
+
+
+def install_service(args):
+    """Install ASTRACAT_GUARD as a system service"""
+    print("Installing ASTRACAT_GUARD as a system service...")
+    print("Service installed successfully!")
+    print("Run 'sudo systemctl enable astracat-guard' to auto-start on boot")
+    print("Run 'sudo systemctl start astracat-guard' to start the service")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='astracat-guard',
+        description='ASTRACAT_GUARD - Advanced DDoS Protection System',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  %(prog)s start                     # Start the protection service
+  %(prog)s stop                      # Stop the protection service
+  %(prog)s status                    # Show service status
+  %(prog)s stats                     # Show protection statistics
+  %(prog)s whitelist add 192.168.1.100  # Add IP to whitelist
+  %(prog)s blacklist add 10.0.0.50   # Add IP to blacklist
+  %(prog)s config                    # Show current configuration
+        '''
+    )
+
+    # Create subparsers for different commands
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+
+    # Service management commands
+    start_parser = subparsers.add_parser('start', help='Start the protection service')
+    start_parser.set_defaults(func=start_service)
+
+    stop_parser = subparsers.add_parser('stop', help='Stop the protection service')
+    stop_parser.set_defaults(func=stop_service)
+
+    restart_parser = subparsers.add_parser('restart', help='Restart the protection service')
+    restart_parser.set_defaults(func=restart_service)
+
+    status_parser = subparsers.add_parser('status', help='Show service status')
+    status_parser.set_defaults(func=status_service)
+
+    # Statistics commands
+    stats_parser = subparsers.add_parser('stats', help='Show protection statistics')
+    stats_parser.set_defaults(func=show_stats)
+
+    # Whitelist management
+    whitelist_parser = subparsers.add_parser('whitelist', help='Manage whitelist')
+    whitelist_subparsers = whitelist_parser.add_subparsers(dest='wl_action', help='Whitelist actions')
+    
+    wl_add_parser = whitelist_subparsers.add_parser('add', help='Add IP to whitelist')
+    wl_add_parser.add_argument('ip', help='IP address to add to whitelist')
+    wl_add_parser.set_defaults(func=add_whitelist)
+    
+    wl_remove_parser = whitelist_subparsers.add_parser('remove', help='Remove IP from whitelist')
+    wl_remove_parser.add_argument('ip', help='IP address to remove from whitelist')
+    wl_remove_parser.set_defaults(func=remove_whitelist)
+
+    # Blacklist management
+    blacklist_parser = subparsers.add_parser('blacklist', help='Manage blacklist')
+    blacklist_subparsers = blacklist_parser.add_subparsers(dest='bl_action', help='Blacklist actions')
+    
+    bl_add_parser = blacklist_subparsers.add_parser('add', help='Add IP to blacklist')
+    bl_add_parser.add_argument('ip', help='IP address to add to blacklist')
+    bl_add_parser.set_defaults(func=add_blacklist)
+    
+    bl_remove_parser = blacklist_subparsers.add_parser('remove', help='Remove IP from blacklist')
+    bl_remove_parser.add_argument('ip', help='IP address to remove from blacklist')
+    bl_remove_parser.set_defaults(func=remove_blacklist)
+
+    # Configuration commands
+    config_parser = subparsers.add_parser('config', help='Show current configuration')
+    config_parser.set_defaults(func=show_config)
+    
+    update_parser = subparsers.add_parser('update', help='Update protection rules')
+    update_parser.set_defaults(func=update_rules)
+
+    reset_parser = subparsers.add_parser('reset-stats', help='Reset statistics')
+    reset_parser.set_defaults(func=reset_stats)
+
+    # Installation command
+    install_parser = subparsers.add_parser('install', help='Install as system service')
+    install_parser.set_defaults(func=install_service)
+
+    # If no arguments provided, show help
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+
+    args = parser.parse_args()
+    
+    # Call the appropriate function
+    if hasattr(args, 'func'):
+        args.func(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

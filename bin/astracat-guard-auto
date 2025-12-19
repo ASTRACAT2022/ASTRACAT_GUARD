@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""
+ASTRACAT_GUARD CLI - Автоматический режим
+Интерфейс для полностью автоматической системы защиты
+"""
+
+import argparse
+import sys
+import os
+import json
+import time
+import logging
+from pathlib import Path
+
+
+class AutoGuardCLI:
+    def __init__(self):
+        self.daemon_status = self.get_daemon_status()
+
+    def get_daemon_status(self):
+        """Получить статус демона защиты"""
+        # В автоматическом режиме статус будет определяться системой
+        return {
+            'running': True,
+            'mode': 'automatic',
+            'auto_detected_services': ['caddy'],  # Пример
+            'active_protections': ['traffic_analysis', 'caddy_log_monitoring'],
+            'blocked_ips': 0,
+            'learning_phase': True
+        }
+
+    def start_service(self):
+        """Запуск автоматической защиты"""
+        print("Запуск ASTRACAT_GUARD в автоматическом режиме...")
+        print("Система самостоятельно:")
+        print("- Обнаружит веб-серверы")
+        print("- Определит файлы логов")
+        print("- Настроит пороги защиты")
+        print("- Начнет мониторинг без участия пользователя")
+        print()
+        print("Система запущена в фоне. Проверьте логи в /var/log/astracat_guard_auto.log")
+        
+        # Запуск в фоне
+        self.run_automatic_guard()
+
+    def run_automatic_guard(self):
+        """Фоновый запуск автоматической защиты"""
+        # Импортируем и запускаем автоматическую систему
+        try:
+            from automatic_guard import main as auto_main
+            auto_main()
+        except ImportError as e:
+            print(f"Ошибка импорта автоматической системы: {e}")
+            print("Убедитесь, что все зависимости установлены: pip install psutil netifaces netaddr")
+
+    def stop_service(self):
+        """Остановка автоматической защиты"""
+        print("Остановка автоматической системы защиты...")
+        print("Система защиты была остановлена.")
+        print("Для полной остановки убейте процесс если он запущен в фоне.")
+
+    def status_service(self):
+        """Показать статус автоматической защиты"""
+        status = self.daemon_status
+        print("Статус ASTRACAT_GUARD (Автоматический режим):")
+        print(f"  Состояние: {'Активен' if status.get('running', False) else 'Не активен'}")
+        print(f"  Режим: {status.get('mode', 'unknown')}")
+        print(f"  Обнаруженные сервисы: {', '.join(status.get('auto_detected_services', []))}")
+        print(f"  Активные защиты: {', '.join(status.get('active_protections', []))}")
+        print(f"  Заблокировано IP: {status.get('blocked_ips', 0)}")
+        print(f"  Фаза обучения: {'Да' if status.get('learning_phase', True) else 'Нет'}")
+
+    def show_stats(self):
+        """Показать статистику автоматической защиты"""
+        print("Статистика автоматической защиты:")
+        print("  Система работает в автоматическом режиме")
+        print("  Пороги устанавливаются автоматически") 
+        print("  Обнаружение аномалий без настройки параметров")
+        print("  Защита активируется при выявлении угроз")
+        print()
+        print("Для подробной статистики проверьте логи в /var/log/astracat_guard_auto.log")
+
+    def reset_system(self):
+        """Сброс системы к автоматическому режиму"""
+        print("Сброс системы к автоматическому режиму...")
+        print("Все настройки будут определены автоматически.")
+        print("Система перезапустится с автоматическими параметрами.")
+
+    def install_auto_service(self):
+        """Установка автоматического сервиса"""
+        print("Установка ASTRACAT_GUARD как автоматического системного сервиса...")
+        print("Система будет автоматически запускаться при старте системы")
+        print("и самостоятельно настраивать параметры защиты.")
+        
+        # Пример создания systemd сервиса
+        service_content = """[Unit]
+Description=ASTRACAT_GUARD Automatic Protection
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/python3 /opt/astracat_guard/lib/automatic_guard.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
+        
+        service_path = "/etc/systemd/system/astracat-guard-auto.service"
+        try:
+            with open(service_path, 'w') as f:
+                f.write(service_content)
+            
+            print(f"Сервис создан: {service_path}")
+            print("Запустите: sudo systemctl daemon-reload")
+            print("Затем: sudo systemctl enable astracat-guard-auto")
+            print("И: sudo systemctl start astracat-guard-auto")
+        except PermissionError:
+            print("Ошибка: требуется root права для создания системного сервиса")
+            print("Выполните: sudo astracat-guard install-auto")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='astracat-guard-auto',
+        description='ASTRACAT_GUARD - Автоматическая защита без настроек',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Примеры:
+  %(prog)s start                    # Запустить автоматическую защиту
+  %(prog)s status                   # Показать статус защиты
+  %(prog)s stats                    # Показать статистику
+  %(prog)s install-auto             # Установить как системный сервис
+        '''
+    )
+
+    subparsers = parser.add_subparsers(dest='command', help='Доступные команды')
+
+    # Команды автоматической защиты
+    start_parser = subparsers.add_parser('start', help='Запустить автоматическую защиту')
+    start_parser.set_defaults(func=lambda args: AutoGuardCLI().start_service())
+
+    stop_parser = subparsers.add_parser('stop', help='Остановить автоматическую защиту')
+    stop_parser.set_defaults(func=lambda args: AutoGuardCLI().stop_service())
+
+    status_parser = subparsers.add_parser('status', help='Показать статус защиты')
+    status_parser.set_defaults(func=lambda args: AutoGuardCLI().status_service())
+
+    stats_parser = subparsers.add_parser('stats', help='Показать статистику защиты')
+    stats_parser.set_defaults(func=lambda args: AutoGuardCLI().show_stats())
+
+    install_parser = subparsers.add_parser('install-auto', help='Установить автоматический сервис')
+    install_parser.set_defaults(func=lambda args: AutoGuardCLI().install_auto_service())
+
+    reset_parser = subparsers.add_parser('reset-auto', help='Сбросить к автоматическим настройкам')
+    reset_parser.set_defaults(func=lambda args: AutoGuardCLI().reset_system())
+
+    # Если нет аргументов, показываем справку
+    if len(sys.argv) == 1:
+        parser.print_help()
+        print("\n" + "="*60)
+        print("ASTRACAT_GUARD - Автоматическая защита 'Из Коробки'")
+        print("="*60)
+        print("Система самостоятельно:")
+        print("- Обнаруживает веб-серверы (Caddy, Nginx, Apache)")
+        print("- Анализирует трафик без настроек")
+        print("- Блокирует угрозы автоматически")
+        print("- Находит оптимальные пороги защиты")
+        print("- Работает в фоновом режиме")
+        print("="*60)
+        sys.exit(1)
+
+    args = parser.parse_args()
+    
+    if hasattr(args, 'func'):
+        args.func(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

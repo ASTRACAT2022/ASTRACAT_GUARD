@@ -1,0 +1,36 @@
+# Dockerfile для автоматической системы ASTRACAT_GUARD
+# файл: /opt/astracat_guard/AutoDockerfile
+
+FROM python:3.9-slim
+
+# Установка системных зависимостей
+RUN apt-get update && apt-get install -y \
+    iptables \
+    net-tools \
+    dnsutils \
+    procps \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка Python пакетов для автоматического анализа
+RUN pip install psutil netifaces netaddr
+
+# Создание рабочей директории
+WORKDIR /opt/astracat_guard
+
+# Копирование файлов
+COPY . .
+
+# Установка прав
+RUN chmod +x /opt/astracat_guard/bin/astracat-guard-auto
+RUN chmod +x /opt/astracat_guard/lib/*.py
+
+# Создание директории для логов
+RUN mkdir -p /var/log/astracat_guard
+RUN touch /var/log/astracat_guard_auto.log
+
+# Следим за типичными местами логов Caddy
+RUN mkdir -p /var/log/caddy
+
+# Точка входа для автоматической системы
+CMD ["python", "/opt/astracat_guard/lib/automatic_guard.py"]

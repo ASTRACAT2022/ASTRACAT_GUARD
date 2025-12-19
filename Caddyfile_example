@@ -1,0 +1,145 @@
+# Пример Caddyfile с интеграцией для ASTRACAT_GUARD
+# файл: /opt/astracat_guard/Caddyfile_example
+
+# Глобальные настройки для безопасности и логирования
+{
+    # Админ API (опционально, закройте в продакшене!)
+    admin localhost:2019
+    
+    # Настройки логирования для ASTRACAT_GUARD
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10MB
+            roll_keep 5
+            roll_gzip true
+        }
+        format json  # JSON формат для легкого парсинга
+    }
+}
+
+# Пример виртуального хоста
+yourdomain.com {
+    # Обязательные заголовки для правильного определения реальных IP
+    header {
+        # Установка CORS заголовков (опционально)
+        Access-Control-Allow-Origin "*"
+        -Server  # Скрыть Server header для безопасности
+    }
+
+    # Логирование всех запросов для ASTRACAT_GUARD
+    log {
+        output file /var/log/caddy/access.log
+        format json {
+            level "level"
+            ts "${time_unix}"
+            msg "${message}"
+            request>method "method"
+            request>uri "uri"
+            request>proto "proto"
+            request>remote_ip "remote_ip"
+            request>remote_port "remote_port"
+            request>headers>user_agent>0 "user_agent"
+            request>headers>referer>0 "referer"
+            request>headers>x_forwarded_for>0 "x_forwarded_for"
+            request>headers>x_real_ip>0 "x_real_ip"
+            status "${status}"
+            response>size "size"
+            duration "${duration}"
+        }
+    }
+
+    # Защита от известных угроз
+    @badbots {
+        expression `{args}` matches `(\.\.\/|\.\.\\|%2e%2e%2f|%2e%2e%5c|\.\.\%2f)`
+    }
+    handle @badbots {
+        respond "Forbidden" 403
+    }
+
+    # Ограничение частоты запросов (basic, ASTRACAT_GUARD обеспечит продвинутую защиту)
+    @frequent {
+        # Это базовое ограничение, ASTRACAT_GUARD будет применять более сложные правила
+        remote_ip 0.0.0.0/0
+    }
+
+    # Reverse proxy к вашему приложению
+    reverse_proxy localhost:3000 {
+        # Обязательно передаем реальные IP заголовки для ASTRACAT_GUARD
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+        
+        # Таймауты для защиты от Slowloris
+        transport http {
+            read_timeout 60s
+            write_timeout 60s
+            idle_timeout 120s
+        }
+    }
+
+    # Для чувствительных путей (панели управления, API)
+    handle_path /admin* {
+        log {
+            output file /var/log/caddy/admin_access.log
+            format json
+        }
+        
+        # Более строгие заголовки для чувствительных путей
+        header {
+            X-Frame-Options "DENY"
+            X-Content-Type-Options "nosniff"
+            X-XSS-Protection "1; mode=block"
+        }
+        
+        reverse_proxy localhost:3001 {
+            # Дополнительные заголовки для чувствительных путей
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+            header_up X-Purpose "admin_access"
+        }
+    }
+    
+    handle_path /api* {
+        # Ограничения для API
+        header {
+            X-Frame-Options "SAMEORIGIN"
+            X-Content-Type-Options "nosniff"
+        }
+        
+        reverse_proxy localhost:3002 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+}
+
+# HTTP на HTTPS редирект
+http://yourdomain.com {
+    redir https://{host}{uri} 301
+}
+
+# Для локального тестирования
+localhost:80 {
+    log {
+        output file /var/log/caddy/access_local.log
+        format json
+    }
+
+    @bad_requests {
+        expression `{args}` matches `(union|select|drop|insert|update|delete|exec|sp_|xp_|0x)`
+    }
+    handle @bad_requests {
+        respond "Blocked" 403
+    }
+
+    reverse_proxy localhost:3000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

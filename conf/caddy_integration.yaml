@@ -1,0 +1,153 @@
+# Специальная конфигурация для интеграции ASTRACAT_GUARD с Caddy
+# файл: /opt/astracat_guard/conf/caddy_integration.yaml
+
+version: "1.0"
+
+# Настройки интеграции с Caddy
+caddy_integration:
+  enabled: true
+  # Путь к логам Caddy для анализа
+  caddy_log_path: "/var/log/caddy/access.log"
+  
+  # Настройки обработки запросов через Caddy
+  proxy_mode:
+    enabled: true
+    # Caddy передает реальные IP через X-Real-IP или X-Forwarded-For
+    real_ip_headers:
+      - "X-Real-IP"
+      - "X-Forwarded-For"
+      - "X-Forwarded-Proto"
+      - "X-Original-Forwarded-For"
+    
+    # Пути, которые особенно важны для защиты
+    protected_paths:
+      - "/admin"
+      - "/login"
+      - "/panel"
+      - "/dashboard"
+      - "/api"
+      - "/auth"
+      - "/user"
+      - "/account"
+      - "/wp-admin"  # Для WordPress сайтов
+      - "/plesk"     # Для Plesk панелей
+      - "/cpanel"    # Для cPanel
+      - "/webmail"
+
+  # Настройки для работы в Docker-окружении
+  docker_integration:
+    enabled: true
+    # Использовать docker stats для мониторинга
+    monitor_docker_containers: false
+    
+  # Специальные настройки для reverse proxy
+  reverse_proxy_settings:
+    # Увеличенные таймауты для proxy-соединений
+    proxy_connect_timeout: 10
+    proxy_send_timeout: 60
+    proxy_read_timeout: 60
+    
+    # Ограничения на количество соединений через proxy
+    max_proxy_connections_per_ip: 50
+
+# Модифицированные настройки защиты для работы с Caddy
+protection:
+  # Защита от DDoS
+  ddos_protection: true
+  
+  # Ограничения в контексте reverse proxy
+  rate_limit:
+    enabled: true
+    # Учет реального IP из заголовков proxy
+    threshold: 100
+    window_size: 60
+    # Учет заголовков proxy при определении уникального клиента
+    use_proxy_headers: true
+  
+  # Ограничения соединений
+  connection_limit:
+    enabled: true
+    max_connections: 200
+    max_connections_per_ip: 20  # Может быть выше из-за NAT от proxy
+    
+  # Защита от HTTP flood
+  http_flood:
+    enabled: true
+    max_requests_per_second: 15
+    
+  # Защита от Slowloris
+  slowloris_protection:
+    enabled: true
+    timeout: 15
+    max_headers: 100
+    header_timeout: 5
+    
+  # Защита веб-панелей (особенно актуально для Caddy)
+  web_panel_protection:
+    enabled: true
+    sensitive_urls:
+      - "/admin"
+      - "/login"
+      - "/panel"
+      - "/dashboard"
+      - "/api"
+      - "/auth"
+      - "/caddy-admin"  # Возможная панель управления Caddy
+    
+  # Фильтрация подозрительных User-Agent
+  user_agent_filter:
+    enabled: true
+    blocked_agents:
+      - "masscan"
+      - "nmap"
+      - "nikto"
+      - "sqlmap"
+      - "nessus"
+      - "zgrab"
+      - "gobuster"
+      - "dirbuster"
+      - "scanning"
+      - "crawler"
+
+# Логирование специфичное для Caddy
+logging:
+  level: "INFO"
+  # В Docker обычно используются stdout/stderr
+  file: "/var/log/astracat_guard.log"
+  rotation:
+    enabled: true
+    max_size: "10MB"
+    backup_count: 3
+  # Логирование в формате совместимом с Docker
+  docker_format: true
+
+# Настройки сети для Docker
+network:
+  # В Docker обычно используются специфичные порты
+  protected_ports:
+    - 80    # HTTP
+    - 443   # HTTPS
+    - 2019  # Caddy admin API port (если используется)
+  # Интерфейс в Docker может отличаться
+  interface: "eth0"  # Типичный Docker интерфейс
+
+# Обновления
+auto_update:
+  enabled: true
+  check_interval: 86400
+
+# Белый список (доверенные IP)
+whitelist:
+  enabled: true
+  ips:
+    - "127.0.0.1"  # localhost
+    - "::1"        # IPv6 localhost
+    - "172.17.0.0/16"   # Docker bridge range
+    - "172.18.0.0/16"   # Возможный другой Docker bridge
+    # Добавьте сюда IP вашего доверенного reverse proxy или других сервисов
+
+# Черный список
+blacklist:
+  enabled: true
+  auto_block_time: 3600
+  auto_block_threshold: 10
