@@ -24,8 +24,23 @@ class AutoCaddyLogAnalyzer:
     Автоматический анализатор логов Caddy
     Не требует настроек, сам определяет аномалии в трафике
     """
-    def __init__(self, log_path="/var/log/caddy/access.log"):
-        self.log_path = log_path
+    def __init__(self, log_path=None):
+        # Import Docker integration if available
+        try:
+            sys.path.append('/opt/astracat_guard/lib')
+            from docker_integration import CaddyLogPathDetector
+            if log_path is None:
+                detector = CaddyLogPathDetector()
+                self.log_path = detector.detect_caddy_log_path()
+            else:
+                self.log_path = log_path
+        except ImportError:
+            # Fallback to default path if Docker integration not available
+            if log_path is None:
+                self.log_path = "/var/log/caddy/access.log"
+            else:
+                self.log_path = log_path
+
         self.log_position = 0  # Позиция в файле для отслеживания новых записей
         self.traffic_stats = defaultdict(lambda: {
             'requests': 0,

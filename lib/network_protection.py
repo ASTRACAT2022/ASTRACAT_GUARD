@@ -79,12 +79,34 @@ class NetworkMonitor:
         """Block an IP using iptables"""
         if ip not in self.stats['blocked_ips']:
             try:
-                cmd = f"iptables -A INPUT -s {ip} -j DROP"
-                subprocess.run(cmd.split(), check=True, capture_output=True)
+                # Use full path to iptables to ensure it's found
+                iptables_cmd = self._get_iptables_cmd()
+                if not iptables_cmd:
+                    logging.error("iptables command not found. Cannot block IP.")
+                    return
+
+                subprocess.run([iptables_cmd, '-A', 'INPUT', '-s', ip, '-j', 'DROP'],
+                              check=True, capture_output=True)
                 self.stats['blocked_ips'].add(ip)
                 logging.warning(f"Blocked IP: {ip}")
             except subprocess.CalledProcessError as e:
                 logging.error(f"Failed to block IP {ip}: {e}")
+            except Exception as e:
+                logging.error(f"Unexpected error blocking IP {ip}: {e}")
+
+    def _get_iptables_cmd(self):
+        """Get the correct iptables command path"""
+        import os
+        possible_paths = ['/sbin/iptables', '/usr/sbin/iptables', '/bin/iptables', 'iptables']
+        for path in possible_paths:
+            if path == 'iptables' or os.path.exists(path):
+                # Test if we can run it
+                try:
+                    subprocess.run([path, '--version'], capture_output=True, check=True)
+                    return path
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+        return None
 
     def add_filter(self, filter_func):
         """Add a filter function to the chain"""
