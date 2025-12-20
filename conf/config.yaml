@@ -9,7 +9,7 @@ protection:
   # Rate limiting settings (requests per minute per IP)
   rate_limit:
     enabled: true
-    threshold: 100
+    threshold: 200  # Увеличено для нормальной работы веб-панели
     window_size: 60  # seconds
   
   # Connection limiting
@@ -17,11 +17,17 @@ protection:
     enabled: true
     max_connections: 100
     max_connections_per_ip: 10
+
+  # SSH specific settings (ensure SSH is not blocked)
+  ssh_protection:
+    enabled: false  # Disable aggressive protection for SSH
+    port: 22
+    whitelist_ips: []  # Additional IPs that should never be blocked for SSH
     
   # HTTP flood protection
   http_flood:
     enabled: true
-    max_requests_per_second: 10
+    max_requests_per_second: 25  # Увеличено для нормальной работы веб-панели
     
   # Slowloris attack prevention
   slowloris_protection:
@@ -38,6 +44,10 @@ protection:
       - "/login"
       - "/panel"
       - "/dashboard"
+      - "/cpanel"
+      - "/webmail"
+      - "/whm"
+      - "/caddy"
     
   # Block suspicious user agents
   user_agent_filter:
@@ -65,7 +75,7 @@ logging:
 network:
   # Interface to monitor (leave empty for all interfaces)
   interface: ""
-  
+
   # Ports to protect
   protected_ports:
     - 80    # HTTP
@@ -78,6 +88,16 @@ network:
     - 2087  # WHM SSL
     - 2095  # Webmail
     - 2096  # Webmail SSL
+    - 22    # SSH
+
+  # IPTables settings
+  iptables:
+    enabled: true
+    chain_name: "ASTRACAT_INPUT"
+    monitor_traffic: true
+    attack_threshold: 100  # packets per check interval
+    check_interval: 10  # seconds
+    block_time: 3600  # seconds to block an attacking IP
     
 # Auto-update settings
 auto_update:
@@ -91,6 +111,8 @@ whitelist:
     - "127.0.0.1"  # localhost
     - "::1"        # IPv6 localhost
     # Add your trusted IPs here:
+    - "95.153.169.176"
+    - "128.71.73.206"
     # - "192.168.1.100"
     # - "10.0.0.0/8"
     
