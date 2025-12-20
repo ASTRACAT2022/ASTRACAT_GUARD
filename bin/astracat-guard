@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 # Add lib directory to path to import guard modules
-sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
+sys.path.append('/opt/astracat_guard/lib')
 
 from guard_daemon import AstracatGuard
 
@@ -39,18 +39,148 @@ def restart_service(args):
 def status_service(args):
     """Show the status of ASTRACAT_GUARD service"""
     print("Checking ASTRACAT_GUARD service status...")
-    # In a real implementation, this would check if the daemon is running
-    print("ASTRACAT_GUARD service is running")
-    print("Protection modules active: All")
-    print("Current stats: Requests=0, Blocked=0")
+
+    # Try to read the status from the status file
+    try:
+        import json
+        with open('/opt/astracat_guard/status/status.json', 'r') as f:
+            status_data = json.load(f)
+
+        # Determine if there's an active attack
+        active_attack = status_data.get('active', False)
+        last_attack_time = status_data.get('last_attack_time', 0)
+        blocked_last_minute = status_data.get('blocked_requests_last_minute', 0)
+        total_blocked = status_data.get('total_blocked_requests', 0)
+        total_requests = status_data.get('total_requests', 0)
+
+        print("ASTRACAT_GUARD service is running")
+        print("Protection modules active: All")
+
+        if active_attack:
+            print("Status: UNDER ATTACK")
+            print(f"Currently blocking: {blocked_last_minute} requests in the last minute")
+        else:
+            print("Status: NORMAL")
+
+        print(f"Current stats: Requests={total_requests}, Blocked={total_blocked}")
+
+        # Convert timestamp to readable format if needed
+        if last_attack_time > 0:
+            import datetime
+            last_attack_readable = datetime.datetime.fromtimestamp(last_attack_time).strftime('%Y-%m-%d %H:%M:%S')
+            print(f"Last attack detected: {last_attack_readable}")
+
+        # Show iptables statistics
+        try:
+            # Import IPTables manager to get stats
+            sys.path.append('/opt/astracat_guard/lib')
+            from iptables_manager import IPTablesManager
+            iptables_mgr = IPTablesManager()
+            chain_stats = iptables_mgr.get_chain_stats()
+            print(f"IPTables blocks: {chain_stats.get('rules', 0)} rules, {chain_stats.get('packets', 0)} packets")
+            print(f"Currently blocked IPs: {len(iptables_mgr.get_blocked_ips())}")
+        except Exception as e:
+            print(f"IPTables stats: Error getting statistics - {e}")
+
+    except FileNotFoundError:
+        print("ASTRACAT_GUARD service is running")
+        print("Protection modules active: All")
+        print("Status: UNKNOWN (status file not found)")
+        print("Current stats: Status information not available yet")
+
+        # Show iptables statistics
+        try:
+            # Import IPTables manager to get stats
+            sys.path.append('/opt/astracat_guard/lib')
+            from iptables_manager import IPTablesManager
+            iptables_mgr = IPTablesManager()
+            chain_stats = iptables_mgr.get_chain_stats()
+            print(f"IPTables blocks: {chain_stats.get('rules', 0)} rules, {chain_stats.get('packets', 0)} packets")
+            print(f"Currently blocked IPs: {len(iptables_mgr.get_blocked_ips())}")
+        except Exception as e:
+            print(f"IPTables stats: Error getting statistics - {e}")
 
 
 def show_stats(args):
     """Show protection statistics"""
     print("Loading ASTRACAT_GUARD statistics...")
-    # In a real implementation, this would connect to the daemon to get live stats
-    print("Statistics not available in this demo version")
-    print("(In production, this would connect to the running daemon)")
+
+    try:
+        # Import IPTables manager to get stats
+        sys.path.append('/opt/astracat_guard/lib')
+        from iptables_manager import IPTablesManager
+        iptables_mgr = IPTablesManager()
+        chain_stats = iptables_mgr.get_chain_stats()
+
+        print(f"IPTables rules: {chain_stats.get('rules', 0)}")
+        print(f"Packets blocked: {chain_stats.get('packets', 0)}")
+        print(f"Bytes blocked: {chain_stats.get('bytes', 0)}")
+
+        # Show current blocked IPs
+        blocked_ips = iptables_mgr.get_blocked_ips()
+        print(f"Currently blocked IPs: {len(blocked_ips)}")
+        if blocked_ips:
+            print("Blocked IP addresses:")
+            for ip in list(blocked_ips)[:10]:  # Show first 10
+                print(f"  - {ip}")
+            if len(blocked_ips) > 10:
+                print(f"  ... and {len(blocked_ips) - 10} more")
+
+    except Exception as e:
+        print(f"Error getting statistics: {e}")
+
+
+def show_blocked_ips(args):
+    """Show currently blocked IP addresses"""
+    try:
+        # Import IPTables manager to get stats
+        sys.path.append('/opt/astracat_guard/lib')
+        from iptables_manager import IPTablesManager
+        iptables_mgr = IPTablesManager()
+
+        blocked_ips = iptables_mgr.get_blocked_ips()
+        print(f"Currently blocked IP addresses: {len(blocked_ips)}")
+
+        if blocked_ips:
+            print("Blocked IPs:")
+            for i, ip in enumerate(sorted(blocked_ips), 1):
+                print(f"  {i:3d}. {ip}")
+        else:
+            print("No IPs are currently blocked.")
+
+    except Exception as e:
+        print(f"Error getting blocked IPs: {e}")
+
+
+def show_docker_info(args):
+    """Show Docker Caddy information"""
+    try:
+        # Import Docker integration to get info
+        sys.path.append('/opt/astracat_guard/lib')
+        from docker_integration import DockerCaddyIntegration
+        docker_int = DockerCaddyIntegration()
+
+        info = docker_int.get_docker_info()
+
+        if not info['docker_available']:
+            print("Docker: Not available on this system")
+            return
+
+        print("Docker: Available")
+        print(f"Caddy containers: {len(info['caddy_containers'])}")
+
+        for container in info['caddy_containers']:
+            print(f"  - Name: {container['name']}, ID: {container['id'][:12]}, Image: {container['image']}")
+
+        if info['log_paths']:
+            print("Log paths:")
+            for log_path in info['log_paths']:
+                print(f"  - {log_path}")
+        else:
+            print("No Caddy log paths found")
+
+    except Exception as e:
+        print(f"Error getting Docker info: {e}")
 
 
 def add_whitelist(args):
@@ -81,7 +211,7 @@ def remove_blacklist(args):
 def show_config(args):
     """Show current configuration"""
     print("Current ASTRACAT_GUARD Configuration:")
-    config_path = os.path.join(os.path.dirname(__file__), 'conf', 'config.yaml')
+    config_path = '/opt/astracat_guard/conf/config.yaml'
     try:
         with open(config_path, 'r') as f:
             print(f.read())
@@ -145,6 +275,14 @@ Examples:
     # Statistics commands
     stats_parser = subparsers.add_parser('stats', help='Show protection statistics')
     stats_parser.set_defaults(func=show_stats)
+
+    # Blocked IPs command
+    blocked_parser = subparsers.add_parser('blocked', help='Show currently blocked IP addresses')
+    blocked_parser.set_defaults(func=show_blocked_ips)
+
+    # Docker info command
+    docker_parser = subparsers.add_parser('docker', help='Show Docker Caddy information')
+    docker_parser.set_defaults(func=show_docker_info)
 
     # Whitelist management
     whitelist_parser = subparsers.add_parser('whitelist', help='Manage whitelist')
